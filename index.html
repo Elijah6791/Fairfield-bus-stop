@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fairfield Smart Bus Stop - Clean Energy Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js for energy analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        navy: {
+                            800: '#0f2942',
+                            900: '#0a192f',
+                            950: '#050c18',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(15, 41, 66, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .hotspot-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a192f; }
+        ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #22c55e; }
+    </style>
+</head>
+<body class="bg-navy-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 bg-navy-900/80 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-brand-500/20 text-brand-500 rounded-lg border border-brand-500/30">
+                    <i data-lucide="zap" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight text-white flex items-center gap-2">
+                        Fairfield EcoStop <span class="text-xs bg-brand-500/20 text-brand-400 font-semibold px-2 py-0.5 rounded-full border border-brand-500/30">iSTEM Project</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Solar & Wind Powered Bus Shelter System</p>
+                </div>
+            </div>
+
+            <!-- Tab Buttons -->
+            <nav class="hidden md:flex space-x-1 bg-navy-950/60 p-1 rounded-xl border border-slate-800" id="main-nav">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-brand-600 text-white shadow-lg">
+                    <i data-lucide="activity" class="w-4 h-4"></i> Live Dashboard
+                </button>
+                <button onclick="switchTab('interactive')" id="nav-interactive" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-2">
+                    <i data-lucide="layers" class="w-4 h-4"></i> Interactive Shelter Model
+                </button>
+                <button onclick="switchTab('calculator')" id="nav-calculator" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-4 h-4"></i> Budget & ROI Calculator
+                </button>
+            </nav>
+
+            <!-- Location Selector Dropdown -->
+            <div class="flex items-center space-x-2">
+                <i data-lucide="map-pin" class="w-4 h-4 text-brand-500"></i>
+                <select id="location-select" onchange="changeLocation(this.value)" class="bg-navy-800 border border-slate-700 text-xs sm:text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-500 text-slate-200">
+                    <option value="interchange">Fairfield Station Bus Interchange</option>
+                    <option value="suburban">Suburban Route (The Horsley Dr)</option>
+                    <option value="showground">Fairfield Showground (Smithfield Rd)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation bar -->
+        <div class="md:hidden flex border-t border-slate-800 bg-navy-950/90 text-xs font-medium justify-around py-2">
+            <button onclick="switchTab('dashboard')" id="mobile-nav-dashboard" class="flex flex-col items-center gap-1 text-brand-500">
+                <i data-lucide="activity" class="w-4 h-4"></i> Dashboard
+            </button>
+            <button onclick="switchTab('interactive')" id="mobile-nav-interactive" class="flex flex-col items-center gap-1 text-slate-400">
+                <i data-lucide="layers" class="w-4 h-4"></i> Interactive Model
+            </button>
+            <button onclick="switchTab('calculator')" id="mobile-nav-calculator" class="flex flex-col items-center gap-1 text-slate-400">
+                <i data-lucide="calculator" class="w-4 h-4"></i> Budget & ROI
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- TAB 1: LIVE DASHBOARD -->
+        <section id="tab-dashboard" class="space-y-6">
+            
+            <!-- Real-time Energy Metrics Banner -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Solar Output -->
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Solar Generation</p>
+                            <h3 class="text-3xl font-bold mt-1 text-white" id="stat-solar">285 W</h3>
+                            <p class="text-xs text-brand-400 mt-1 flex items-center gap-1">
+                                <i data-lucide="sun" class="w-3.5 h-3.5"></i> <span id="stat-sun-hours">4.5 Peak Sun Hours</span>
+                            </p>
+                        </div>
+                        <div class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
+                            <i data-lucide="sun" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-slate-800/60 rounded-full h-1.5 overflow-hidden">
+                        <div id="bar-solar" class="bg-amber-400 h-full transition-all duration-500" style="width: 70%"></div>
+                    </div>
+                </div>
+
+                <!-- Wind Output -->
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Wind Generation</p>
+                            <h3 class="text-3xl font-bold mt-1 text-white" id="stat-wind">120 W</h3>
+                            <p class="text-xs text-cyan-400 mt-1 flex items-center gap-1">
+                                <i data-lucide="wind" class="w-3.5 h-3.5"></i> <span id="stat-wind-speed">14 km/h Gusts</span>
+                            </p>
+                        </div>
+                        <div class="p-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl">
+                            <i data-lucide="wind" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-slate-800/60 rounded-full h-1.5 overflow-hidden">
+                        <div id="bar-wind" class="bg-cyan-400 h-full transition-all duration-500" style="width: 40%"></div>
+                    </div>
+                </div>
+
+                <!-- Battery Level -->
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Battery Storage</p>
+                            <h3 class="text-3xl font-bold mt-1 text-white" id="stat-battery">88%</h3>
+                            <p class="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                                <i data-lucide="battery-charging" class="w-3.5 h-3.5"></i> Status: <span class="font-semibold">Charging</span>
+                            </p>
+                        </div>
+                        <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+                            <i data-lucide="battery-charging" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-slate-800/60 rounded-full h-1.5 overflow-hidden">
+                        <div id="bar-battery" class="bg-emerald-400 h-full transition-all duration-500" style="width: 88%"></div>
+                    </div>
+                </div>
+
+                <!-- Daily Yield -->
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Daily Yield</p>
+                            <h3 class="text-3xl font-bold mt-1 text-white" id="stat-daily">2.35 <span class="text-sm font-normal text-slate-400">kWh</span></h3>
+                            <p class="text-xs text-slate-400 mt-1">Net Consumption: <span class="text-emerald-400">1.40 kWh</span></p>
+                        </div>
+                        <div class="p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">
+                            <i data-lucide="zap" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> 100% Off-Grid Self Sufficient
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Section: Bus Arrival Screen & Location Info -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Bus Digital Display (Emulating real bus shelter screen) -->
+                <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-slate-700/50 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                                <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                                    <i data-lucide="bus" class="w-5 h-5 text-brand-500"></i> Commuter Digital Information Board
+                                </h3>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-md font-mono" id="live-clock">12:45 PM</span>
+                        </div>
+
+                        <!-- Current Stop Banner -->
+                        <div class="bg-navy-900/90 rounded-xl p-4 my-4 border border-slate-800 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <div>
+                                <span class="text-xs text-brand-400 font-semibold uppercase tracking-wider">Current Location</span>
+                                <h4 class="text-xl font-bold text-white" id="loc-name">Fairfield Station Bus Interchange</h4>
+                                <p class="text-xs text-slate-400" id="loc-address">The Crescent / Dale Street, Fairfield NSW 2165</p>
+                            </div>
+                            <div class="flex items-center gap-2 bg-navy-950 px-3 py-2 rounded-lg border border-slate-800 text-xs">
+                                <i data-lucide="users" class="w-4 h-4 text-brand-400"></i>
+                                <span>Shelter Capacity: <strong>4 Seated</strong> | <strong>6-8 Standing</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Live Bus Schedules Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="text-xs text-slate-400 border-b border-slate-800 uppercase">
+                                        <th class="pb-2">Route</th>
+                                        <th class="pb-2">Destination</th>
+                                        <th class="pb-2">Status</th>
+                                        <th class="pb-2 text-right">Arrival</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800/50 font-medium" id="bus-table-body">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Footnote banner for powersource -->
+                    <div class="mt-6 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+                        <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i> Powered by Solar-Wind Hybrid Storage System</span>
+                        <span class="text-brand-400 font-medium">Free Commuter USB Charging Active</span>
+                    </div>
+                </div>
+
+                <!-- System Specs & Environmental Impact -->
+                <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="leaf" class="w-5 h-5 text-brand-500"></i> Environmental Impact
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-navy-900/60 p-4 rounded-xl border border-slate-800">
+                                <div class="text-xs text-slate-400">CO2 Emissions Reduced</div>
+                                <div class="text-2xl font-bold text-white mt-1">1.28 Tonnes / Year</div>
+                                <p class="text-[11px] text-slate-400 mt-1">Equivalent to planting ~58 native Australian trees annually.</p>
+                            </div>
+
+                            <div class="bg-navy-900/60 p-4 rounded-xl border border-slate-800">
+                                <div class="text-xs text-slate-400">Grid Reliance</div>
+                                <div class="text-2xl font-bold text-emerald-400 mt-1">0% (Fully Autonomous)</div>
+                                <p class="text-[11px] text-slate-400 mt-1">Saves Fairfield Council ~$450/year in utility costs per stop.</p>
+                            </div>
+
+                            <div class="bg-navy-900/60 p-4 rounded-xl border border-slate-800">
+                                <div class="text-xs text-slate-400">Designed System Lifespan</div>
+                                <div class="text-lg font-bold text-white mt-1 flex items-center justify-between">
+                                    <span>Solar Panels & Structure</span>
+                                    <span class="text-brand-400">25+ Years</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800 pt-2">
+                                    <span>LiFePO4 Battery & LEDs</span>
+                                    <span class="text-amber-400">7–10 Years</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-3 bg-brand-500/10 border border-brand-500/30 rounded-xl text-xs text-brand-300">
+                        <strong>Thermal Comfort Note:</strong> Standard durable aluminum seating selected over heated seating to eliminate winter battery drain and prioritize summer shade comfort.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Energy Output Chart -->
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-white">24-Hour Energy Generation vs Consumption</h3>
+                        <p class="text-xs text-slate-400">Comparing Solar Panels, Wind Turbine Output & Shelter Energy Demand</p>
+                    </div>
+                    <div class="flex items-center space-x-4 text-xs font-semibold">
+                        <span class="flex items-center gap-1 text-amber-400"><span class="w-3 h-3 rounded-full bg-amber-400 inline-block"></span> Solar</span>
+                        <span class="flex items-center gap-1 text-cyan-400"><span class="w-3 h-3 rounded-full bg-cyan-400 inline-block"></span> Wind</span>
+                        <span class="flex items-center gap-1 text-emerald-400"><span class="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span> Load Demand</span>
+                    </div>
+                </div>
+                <div class="h-64 w-full">
+                    <canvas id="energyChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB 2: INTERACTIVE SHELTER MODEL DIAGRAM -->
+        <section id="tab-interactive" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i data-lucide="cpu" class="w-6 h-6 text-brand-500"></i> Interactive System Diagram & Specs
+                        </h2>
+                        <p class="text-xs text-slate-400">Click on any component hotspot to inspect technical details, energy metrics, and lifespan</p>
+                    </div>
+                    <div class="text-xs text-slate-400 bg-navy-900 px-3 py-1.5 rounded-lg border border-slate-800">
+                        Orthographic Schematic Views • 1:20 Prototype Scale
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    
+                    <!-- Diagram Graphic Canvas with Hotspots -->
+                    <div class="lg:col-span-7 bg-slate-900/90 rounded-2xl p-6 border border-slate-800 relative min-h-[420px] flex items-center justify-center overflow-hidden">
+                        
+                        <!-- Simulated Vector Illustration of Shelter -->
+                        <div class="relative w-full max-w-lg aspect-[4/3] bg-navy-950 rounded-xl border border-slate-800 p-4 flex flex-col justify-between shadow-2xl">
+                            
+                            <!-- Wind Turbine Top Right -->
+                            <div class="absolute -top-4 left-10 flex flex-col items-center">
+                                <div class="w-12 h-16 border-2 border-cyan-400 rounded-full flex items-center justify-center animate-spin" style="animation-duration: 4s;">
+                                    <div class="w-full h-0.5 bg-cyan-400 rotate-45"></div>
+                                    <div class="w-full h-0.5 bg-cyan-400 -rotate-45"></div>
+                                </div>
+                                <div class="w-1.5 h-12 bg-slate-600"></div>
+                            </div>
+
+                            <!-- Solar Panels Roof -->
+                            <div class="w-3/4 mx-auto bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 h-10 rounded-t-lg border-2 border-blue-400/80 flex items-center justify-around px-2 shadow-lg">
+                                <div class="w-1/4 h-full border-r border-blue-400/40"></div>
+                                <div class="w-1/4 h-full border-r border-blue-400/40"></div>
+                                <div class="w-1/4 h-full border-r border-blue-400/40"></div>
+                            </div>
+
+                            <!-- Main Glass Shelter Structure -->
+                            <div class="flex-1 border-t-4 border-slate-600 bg-slate-800/30 rounded-b-lg flex justify-between p-4 relative">
+                                
+                                <!-- Digital Display Board inside -->
+                                <div class="w-24 h-28 bg-navy-900 border border-brand-500/50 rounded-md p-1 flex flex-col justify-between text-[8px] text-brand-400 font-mono">
+                                    <div class="bg-brand-500/20 px-1 py-0.5 rounded font-bold text-center">NEXT BUS</div>
+                                    <div class="space-y-1 my-auto">
+                                        <div>City 5m</div>
+                                        <div>Main 12m</div>
+                                    </div>
+                                    <div class="text-[6px] text-slate-400 text-center">Clean Energy</div>
+                                </div>
+
+                                <!-- Bench -->
+                                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-48 h-6 bg-amber-900/80 rounded border border-amber-700 flex items-center justify-center text-[10px] text-amber-200">
+                                    4-Person Bench
+                                </div>
+
+                                <!-- Side Power Column (Charge Controller & Battery) -->
+                                <div class="w-16 h-36 bg-slate-900 border border-slate-700 rounded-md p-1.5 flex flex-col justify-between">
+                                    <div class="w-full h-10 bg-indigo-950 border border-indigo-500/50 rounded text-[7px] text-indigo-300 p-0.5 text-center">
+                                        Charge Controller
+                                    </div>
+                                    <div class="w-full h-16 bg-emerald-950 border border-emerald-500/50 rounded text-[7px] text-emerald-300 p-0.5 text-center flex flex-col justify-center items-center">
+                                        <i data-lucide="battery-charging" class="w-3 h-3 text-emerald-400 mb-0.5"></i>
+                                        Battery 2.5kWh
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Clickable Hotspots overlay -->
+                            <!-- Hotspot 1: Wind Turbine -->
+                            <button onclick="inspectComponent('turbine')" class="absolute top-2 left-14 hotspot-pulse w-7 h-7 bg-cyan-500 text-slate-950 font-bold rounded-full flex items-center justify-center text-xs hover:scale-110 transition-transform">1</button>
+
+                            <!-- Hotspot 2: Solar Panels -->
+                            <button onclick="inspectComponent('solar')" class="absolute top-6 left-1/2 -translate-x-1/2 hotspot-pulse w-7 h-7 bg-amber-500 text-slate-950 font-bold rounded-full flex items-center justify-center text-xs hover:scale-110 transition-transform">2</button>
+
+                            <!-- Hotspot 3: Charge Controller -->
+                            <button onclick="inspectComponent('controller')" class="absolute bottom-28 right-8 hotspot-pulse w-7 h-7 bg-indigo-500 text-slate-950 font-bold rounded-full flex items-center justify-center text-xs hover:scale-110 transition-transform">3</button>
+
+                            <!-- Hotspot 4: Battery Storage -->
+                            <button onclick="inspectComponent('battery')" class="absolute bottom-10 right-8 hotspot-pulse w-7 h-7 bg-emerald-500 text-slate-950 font-bold rounded-full flex items-center justify-center text-xs hover:scale-110 transition-transform">4</button>
+
+                            <!-- Hotspot 5: Digital Display -->
+                            <button onclick="inspectComponent('display')" class="absolute top-24 left-20 hotspot-pulse w-7 h-7 bg-brand-500 text-slate-950 font-bold rounded-full flex items-center justify-center text-xs hover:scale-110 transition-transform">5</button>
+
+                            <!-- Hotspot 6: LED & USB -->
+                            <button onclick="inspectComponent('amenities')" class="absolute top-20 right-28 hotspot-pulse w-7 h-7 bg-purple-500 text-slate-950 font-bold rounded-full flex items-center justify-center text-xs hover:scale-110 transition-transform">6</button>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Details Inspector Panel -->
+                    <div class="lg:col-span-5 glass-panel p-6 rounded-2xl border border-slate-700" id="component-inspector">
+                        <!-- Populated by JavaScript when clicking hotspot -->
+                        <div class="text-center py-12 text-slate-400">
+                            <i data-lucide="mouse-pointer-click" class="w-12 h-12 mx-auto text-brand-500 mb-3 animate-bounce"></i>
+                            <h4 class="text-white font-semibold text-base">Select a Component</h4>
+                            <p class="text-xs mt-1 max-w-xs mx-auto">Click any numbered hotspot on the diagram to inspect its specs, lifespan, and power output details.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB 3: BUDGET & ROI CALCULATOR -->
+        <section id="tab-calculator" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="max-w-3xl mb-6">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-6 h-6 text-brand-500"></i> Project Budget & ROI Financial Model
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Interactively adjust unit costs, annual maintenance fees, and electronic ad revenues to compute the financial payback period for Fairfield City Council.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    
+                    <!-- Sliders Column -->
+                    <div class="lg:col-span-7 space-y-6 bg-navy-900/80 p-6 rounded-2xl border border-slate-800">
+                        
+                        <!-- Initial Capital Cost Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs text-slate-300 font-semibold flex items-center gap-2">
+                                    <i data-lucide="building" class="w-4 h-4 text-brand-400"></i> Shelter Installation Capital Cost (CapEx)
+                                </label>
+                                <span class="text-sm font-bold text-brand-400 font-mono" id="val-capex">$30,000</span>
+                            </div>
+                            <input type="range" id="input-capex" min="20440" max="42950" step="500" value="30000" oninput="updateCalculator()" class="w-full accent-brand-500 bg-slate-800 rounded-lg cursor-pointer">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                                <span>Min: $20,440</span>
+                                <span>Avg: $31,695</span>
+                                <span>Max: $42,950</span>
+                            </div>
+                        </div>
+
+                        <!-- Ad Revenue Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs text-slate-300 font-semibold flex items-center gap-2">
+                                    <i data-lucide="tv" class="w-4 h-4 text-amber-400"></i> Annual Ad Revenue Generator (Display Screen)
+                                </label>
+                                <span class="text-sm font-bold text-amber-400 font-mono" id="val-adrev">$2,500 / yr</span>
+                            </div>
+                            <input type="range" id="input-adrev" min="1500" max="4000" step="100" value="2500" oninput="updateCalculator()" class="w-full accent-amber-500 bg-slate-800 rounded-lg cursor-pointer">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                                <span>Low: $1,500/yr</span>
+                                <span>Est. Average: $2,500/yr</span>
+                                <span>High Traffic: $4,000/yr</span>
+                            </div>
+                        </div>
+
+                        <!-- Maintenance Cost Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs text-slate-300 font-semibold flex items-center gap-2">
+                                    <i data-lucide="wrench" class="w-4 h-4 text-cyan-400"></i> Annual Servicing & Maintenance Fee
+                                </label>
+                                <span class="text-sm font-bold text-cyan-400 font-mono" id="val-maint">$1,000 / yr</span>
+                            </div>
+                            <input type="range" id="input-maint" min="500" max="2000" step="50" value="1000" oninput="updateCalculator()" class="w-full accent-cyan-500 bg-slate-800 rounded-lg cursor-pointer">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                                <span>Basic: $500/yr</span>
+                                <span>Project Target: $1,000/yr</span>
+                                <span>Full Cover: $2,000/yr</span>
+                            </div>
+                        </div>
+
+                        <!-- Grid Energy Savings (Fixed Benefit) -->
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                            <div>
+                                <div class="text-slate-300 font-medium">Grid Electricity Cost Avoidance</div>
+                                <div class="text-slate-500">Off-grid renewable power savings</div>
+                            </div>
+                            <span class="text-emerald-400 font-bold font-mono">+$450 / yr</span>
+                        </div>
+
+                    </div>
+
+                    <!-- Output Summary Column -->
+                    <div class="lg:col-span-5 glass-panel p-6 rounded-2xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">Financial Summary & Payback</h3>
+                            
+                            <div class="space-y-4">
+                                <div class="bg-navy-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                                    <span class="text-xs text-slate-400">Net Annual Cash Flow</span>
+                                    <span class="text-lg font-bold text-emerald-400 font-mono" id="calc-netcash">+$1,950 / yr</span>
+                                </div>
+
+                                <div class="bg-navy-950 p-5 rounded-xl border border-brand-500/30">
+                                    <span class="text-xs text-slate-400 block mb-1">Estimated Payback Period</span>
+                                    <div class="text-3xl font-extrabold text-white font-mono" id="calc-payback">15.4 Years</div>
+                                    <p class="text-[11px] text-slate-400 mt-2">
+                                        Well within the shelter’s <strong>25+ year designed structural lifecycle</strong>.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 space-y-1">
+                            <div class="font-bold">Key Project Takeaway:</div>
+                            <p>Digital ad revenues ($1,500-$3,000/yr) completely cover the annual $1,000 maintenance fee, making the project financially sustainable for Fairfield Council.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-navy-950 text-slate-500 text-xs py-4 text-center">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span>Fairfield Community Sustainability Project • iSTEM Energy Planning</span>
+            <span class="text-slate-400">Prepared by ICIC , Yousif & Yamen</span>
+        </div>
+    </footer>
+
+    <!-- Application Script -->
+    <script>
+        // System Data State
+        const locationData = {
+            interchange: {
+                name: "Fairfield Station Bus Interchange",
+                address: "The Crescent / Dale Street, Fairfield NSW 2165",
+                capacity: "4 Seated | 8 Standing",
+                sunHours: "4.8 Peak Hours",
+                windSpeed: "12 km/h",
+                solarWatt: 310,
+                windWatt: 110,
+                battery: 92,
+                buses: [
+                    { route: "800", dest: "Liverpool Station via Fairfield Heights", status: "On Time", arrival: "2 min" },
+                    { route: "804", dest: "Parramatta Station via Merrylands", status: "On Time", arrival: "6 min" },
+                    { route: "808", dest: "Cabramatta Station", status: "Delayed (2m)", arrival: "11 min" },
+                    { route: "812", dest: "Bonnyrigg Town Centre", status: "On Time", arrival: "18 min" }
+                ]
+            },
+            suburban: {
+                name: "Suburban Route Stop",
+                address: "The Horsley Drive, Fairfield Heights NSW 2165",
+                capacity: "4 Seated | 6 Standing",
+                sunHours: "5.2 Peak Hours",
+                windSpeed: "18 km/h",
+                solarWatt: 340,
+                windWatt: 165,
+                battery: 84,
+                buses: [
+                    { route: "813", dest: "Fairfield Station", status: "On Time", arrival: "4 min" },
+                    { route: "800", dest: "Wetherill Park Shopping Centre", status: "On Time", arrival: "9 min" },
+                    { route: "814", dest: "Prairiewood Bus T-way", status: "On Time", arrival: "15 min" }
+                ]
+            },
+            showground: {
+                name: "Fairfield Showground Stop",
+                address: "Smithfield Road, Prairiewood NSW 2176",
+                capacity: "4 Seated | 10 Standing",
+                sunHours: "4.3 Peak Hours",
+                windSpeed: "15 km/h",
+                solarWatt: 260,
+                windWatt: 140,
+                battery: 95,
+                buses: [
+                    { route: "808", dest: "Fairfield Station", status: "On Time", arrival: "1 min" },
+                    { route: "817", dest: "Cabramatta Interchange", status: "On Time", arrival: "8 min" },
+                    { route: "800", dest: "Liverpool Station", status: "On Time", arrival: "14 min" }
+                ]
+            }
+        };
+
+        const componentSpecs = {
+            solar: {
+                title: "Rooftop Monocrystalline Solar Panels",
+                category: "Primary Energy Generation",
+                specs: [
+                    { label: "Rated Capacity", val: "400 Watts Peak Array" },
+                    { label: "Daily Output", val: "1.5 – 2.0 kWh / day" },
+                    { label: "Lifespan", val: "25+ Years (80% output guarantee)" },
+                    { label: "Efficiency Rating", val: "21.5% High-Efficiency Cells" }
+                ],
+                desc: "Mounted at optimal tilt on the shelter roof to convert Australia's abundant sunlight directly into clean electricity."
+            },
+            turbine: {
+                title: "Vertical Axis Micro Wind Turbine",
+                category: "Secondary / Night Generation",
+                specs: [
+                    { label: "Rated Capacity", val: "150 Watts" },
+                    { label: "Daily Output", val: "0.3 – 0.7 kWh / day" },
+                    { label: "Lifespan", val: "15 – 20 Years" },
+                    { label: "Cut-in Wind Speed", val: "2.2 m/s (Low noise omnidirectional)" }
+                ],
+                desc: "Generates supplementary electricity during evening hours, overcast conditions, and passing bus wind gusts."
+            },
+            controller: {
+                title: "MPPT Dual Hybrid Charge Controller",
+                category: "Power Regulation & Safety",
+                specs: [
+                    { label: "Efficiency", val: "98% MPPT Tracking" },
+                    { label: "Protection", val: "Overcharge, Short-circuit & Reverse polarity" },
+                    { label: "Lifespan", val: "10 – 12 Years" }
+                ],
+                desc: "Safely regulates power coming simultaneously from solar panels and wind turbine into the storage battery."
+            },
+            battery: {
+                title: "LiFePO4 Lithium Battery Storage",
+                category: "Energy Storage Unit",
+                specs: [
+                    { label: "Capacity", val: "2.5 kWh (12V 200Ah)" },
+                    { label: "Autonomy", val: "48 Hours backup without sun/wind" },
+                    { label: "Lifespan", val: "7 – 10 Years (3,500+ cycles)" }
+                ],
+                desc: "Safely stores excess clean energy for uninterrupted night illumination, USB charging, and electronic displays."
+            },
+            display: {
+                title: "Ultra-Low Power Digital E-Paper / LED Display",
+                category: "Commuter Information & Ad Revenue",
+                specs: [
+                    { label: "Power Usage", val: "15 – 30 Watts" },
+                    { label: "Ad Revenue Potential", val: "$1,500 – $3,000 / year per stop" },
+                    { label: "Lifespan", val: "8 – 10 Years" }
+                ],
+                desc: "Displays live real-time bus arrivals and city notices while generating commercial ad revenue to fund maintenance."
+            },
+            amenities: {
+                title: "Night LED Lighting & Dual USB Charging Ports",
+                category: "Commuter Security & Convenience",
+                specs: [
+                    { label: "Lighting Power", val: "12W Dusk-to-Dawn LED Bar" },
+                    { label: "USB Output", val: "5V / 2.1A Fast Charge Ports" },
+                    { label: "Lifespan", val: "7 – 10 Years" }
+                ],
+                desc: "Enhances commuter safety at night while allowing waiting passengers to charge mobile devices powered by stored clean energy."
+            }
+        };
+
+        let currentLocKey = 'interchange';
+        let energyChart = null;
+
+        // Init function
+        window.onload = function() {
+            lucide.createIcons();
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderBusTable();
+            initChart();
+            updateCalculator();
+            inspectComponent('solar'); // default selection
+        };
+
+        // Navigation Tabs Switcher
+        function switchTab(tabId) {
+            ['dashboard', 'interactive', 'calculator'].forEach(id => {
+                const sec = document.getElementById(`tab-${id}`);
+                const btn = document.getElementById(`nav-${id}`);
+                const mBtn = document.getElementById(`mobile-nav-${id}`);
+
+                if(id === tabId) {
+                    sec.classList.remove('hidden');
+                    btn.className = "px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-brand-600 text-white shadow-lg";
+                    if(mBtn) mBtn.className = "flex flex-col items-center gap-1 text-brand-500 font-bold";
+                } else {
+                    sec.classList.add('hidden');
+                    btn.className = "px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-2";
+                    if(mBtn) mBtn.className = "flex flex-col items-center gap-1 text-slate-400";
+                }
+            });
+        }
+
+        // Location Switcher
+        function changeLocation(key) {
+            currentLocKey = key;
+            const data = locationData[key];
+
+            document.getElementById('loc-name').innerText = data.name;
+            document.getElementById('loc-address').innerText = data.address;
+            document.getElementById('stat-solar').innerText = `${data.solarWatt} W`;
+            document.getElementById('stat-wind').innerText = `${data.windWatt} W`;
+            document.getElementById('stat-battery').innerText = `${data.battery}%`;
+            document.getElementById('bar-battery').style.width = `${data.battery}%`;
+            document.getElementById('stat-sun-hours').innerText = data.sunHours;
+            document.getElementById('stat-wind-speed').innerText = `${data.windSpeed} Gusts`;
+
+            renderBusTable();
+        }
+
+        function renderBusTable() {
+            const data = locationData[currentLocKey];
+            const tbody = document.getElementById('bus-table-body');
+            tbody.innerHTML = '';
+
+            data.buses.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-800/40 hover:bg-slate-800/20";
+                tr.innerHTML = `
+                    <td class="py-3 font-bold text-brand-400"><span class="px-2 py-1 bg-brand-500/10 border border-brand-500/20 rounded-md">Route ${b.route}</span></td>
+                    <td class="py-3 text-slate-200">${b.dest}</td>
+                    <td class="py-3 text-xs"><span class="px-2 py-0.5 rounded-full ${b.status.includes('Delayed') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${b.status}</span></td>
+                    <td class="py-3 text-right font-bold text-white">${b.arrival}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Live Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        // Chart Init
+        function initChart() {
+            const ctx = document.getElementById('energyChart').getContext('2d');
+            const hours = ['12am', '3am', '6am', '9am', '12pm', '3pm', '6pm', '9pm'];
+            
+            energyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [
+                        {
+                            label: 'Solar Output (W)',
+                            data: [0, 0, 40, 280, 380, 310, 80, 0],
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Wind Output (W)',
+                            data: [120, 140, 90, 60, 80, 110, 150, 130],
+                            borderColor: '#06b6d4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Shelter Load (W)',
+                            data: [45, 45, 45, 70, 75, 70, 85, 85],
+                            borderColor: '#10b981',
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // Interactive Hotspot Component Inspector
+        function inspectComponent(key) {
+            const comp = componentSpecs[key];
+            const panel = document.getElementById('component-inspector');
+
+            let specsHTML = comp.specs.map(s => `
+                <div class="flex justify-between items-center py-2 border-b border-slate-800 text-xs">
+                    <span class="text-slate-400">${s.label}</span>
+                    <span class="font-bold text-white font-mono">${s.val}</span>
+                </div>
+            `).join('');
+
+            panel.innerHTML = `
+                <div>
+                    <span class="text-[10px] font-semibold text-brand-400 uppercase tracking-widest px-2 py-0.5 bg-brand-500/10 border border-brand-500/20 rounded-md">
+                        ${comp.category}
+                    </span>
+                    <h3 class="text-lg font-bold text-white mt-2">${comp.title}</h3>
+                    <p class="text-xs text-slate-300 mt-2 leading-relaxed">${comp.desc}</p>
+                    
+                    <div class="mt-5 space-y-1 bg-navy-950 p-4 rounded-xl border border-slate-800">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Technical Specifications</h4>
+                        ${specsHTML}
+                    </div>
+                </div>
+
+                <div class="mt-6 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-xs text-indigo-300 flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
+                    <span>This component is part of Fairfield's 1:20 scaled working prototype design.</span>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Budget & ROI Calculator Logic
+        function updateCalculator() {
+            const capex = parseInt(document.getElementById('input-capex').value);
+            const adrev = parseInt(document.getElementById('input-adrev').value);
+            const maint = parseInt(document.getElementById('input-maint').value);
+            const gridSavings = 450; // Fixed annual benefit
+
+            document.getElementById('val-capex').innerText = `$${capex.toLocaleString()}`;
+            document.getElementById('val-adrev').innerText = `$${adrev.toLocaleString()} / yr`;
+            document.getElementById('val-maint').innerText = `$${maint.toLocaleString()} / yr`;
+
+            const netCashFlow = (adrev + gridSavings) - maint;
+            document.getElementById('calc-netcash').innerText = `${netCashFlow >= 0 ? '+' : ''}$${netCashFlow.toLocaleString()} / yr`;
+
+            if(netCashFlow <= 0) {
+                document.getElementById('calc-payback').innerText = "N/A (Costs Exceed Revenue)";
+                document.getElementById('calc-payback').className = "text-xl font-bold text-rose-400 font-mono";
+            } else {
+                const paybackYears = (capex / netCashFlow).toFixed(1);
+                document.getElementById('calc-payback').innerText = `${paybackYears} Years`;
+                document.getElementById('calc-payback').className = "text-3xl font-extrabold text-white font-mono";
+            }
+        }
+    </script>
+</body>
+</html>
